@@ -17,22 +17,22 @@ import java.time.LocalDate
 class PersonRoutes {
 
     @Bean
-    fun router(repository: PersonRepository) = router {
-        val handler = PersonHandler(repository)
+    fun router(service: CachingService) = router {
+        val handler = PersonHandler(service)
         GET("/person", handler::getAll)
         GET("/person/{id}", handler::getOne)
     }
 }
 
-class PersonHandler(private val repository: PersonRepository) {
+class PersonHandler(private val service: CachingService) {
 
     fun getAll(req: ServerRequest): Mono<ServerResponse> {
-        val flux = repository.findAll(Sort.by("lastName", "firstName"))
+        val flux = service.findAll(Sort.by("lastName", "firstName"))
         return ok().body<Person>(flux)
     }
 
     fun getOne(req: ServerRequest): Mono<ServerResponse> {
-        val mono = repository
+        val mono = service
             .findById(req.pathVariable("id").toLong())
             .switchIfEmpty(Mono.error { ResponseStatusException(NOT_FOUND) })
         return ok().body<Person>(mono)
