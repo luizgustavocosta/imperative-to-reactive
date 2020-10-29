@@ -1,19 +1,21 @@
 package org.hazelcast.cache
 
 import com.hazelcast.map.IMap
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.future.await
 import org.springframework.data.domain.Sort
-import reactor.core.publisher.Mono
 
 
 class CachingService(private val cache: IMap<Long, Person>, private val repository: PersonRepository) {
 
-    fun findById(id: Long) = Mono.fromCompletionStage { cache.getAsync(id) }
-        .switchIfEmpty(repository
-            .findById(id)
-            .doOnNext { cache.putAsync(it.id, it) }
-        )
+    suspend fun findById(id: Long) = cache.getAsync(id).await()
+        ?: repository.findById(id)?.also { cache.putAsync(it.id, it) }
 
-    fun findAll(sort: Sort) = repository
+    suspend fun findAll(sort: Sort) = repository
         .findAll(sort)
-        .doOnNext { cache.putAsync(it.id, it) }
+        .apply {
+            collect {
+                cache.putAsync(it.id, it)
+            }
+        }
 }
